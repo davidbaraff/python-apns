@@ -129,7 +129,8 @@ class APNsClient(object):
             mutable_content=False,
             action_loc_key=None, loc_key=None, loc_args=[], extra={}, 
             identifier=None, expiration=None, priority=10, 
-            connection=None, auth_token=None, bundle_id=None, topic=None
+            connection=None, auth_token=None, bundle_id=None, topic=None,
+            push_type="alert"
         ):
         if not (topic or bundle_id or self.bundle_id):
             raise ImproperlyConfigured(
@@ -162,6 +163,8 @@ class APNsClient(object):
 
         if content_available:
             aps_data["content-available"] = 1
+            push_type = "background"
+            priority = 5
 
         if mutable_content:
             aps_data["mutable-content"] = 1
@@ -187,6 +190,7 @@ class APNsClient(object):
             'apns-expiration': str(expiration_time),
             'apns-priority': str(priority),
             'apns-topic': topic,
+            'apns-push-type' : push_type,
             'authorization': 'bearer {0}'.format(auth_token)
         }
 
