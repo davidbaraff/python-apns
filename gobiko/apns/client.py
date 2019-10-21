@@ -72,14 +72,21 @@ class APNsClient(object):
     def send_message(self, registration_id, alert, **kwargs):
         return self._send_message(registration_id, alert, **kwargs)
 
-    def send_bulk_message(self, registration_ids, alert, **kwargs):
+    def send_bulk_message(self, registration_ids, alert, topics=None, **kwargs):
+        if not registration_ids:
+            return
+        
         good_registration_ids = []
         bad_registration_ids = []
 
         with closing(self._create_connection()) as connection:
-            for registration_id in registration_ids:
+            for i, registration_id in enumerate(registration_ids):
                 try:
-                    res = self._send_message(registration_id, alert, connection=connection, **kwargs)
+                    if topics:
+                        res = self._send_message(registration_id, alert, connection=connection,
+                                                 topic=topics[i], **kwargs)
+                    else:
+                        res = self._send_message(registration_id, alert, connection=connection, **kwargs)
                     good_registration_ids.append(registration_id)
                 except:
                     bad_registration_ids.append(registration_id)
