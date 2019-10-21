@@ -1,4 +1,3 @@
-import importlib
 import json
 import jwt
 import time
@@ -15,9 +14,8 @@ from .exceptions import (
     BadDeviceToken,
     PartialBulkMessage
 )
-
+from . import exceptions
 from .utils import validate_private_key, wrap_private_key
-
 
 ALGORITHM = 'ES256'
 SANDBOX_HOST = 'api.development.push.apple.com:443'
@@ -68,6 +66,8 @@ class APNsClient(object):
         self.auth_key_id = auth_key_id
         self.force_proto = force_proto
         self.host = SANDBOX_HOST if use_sandbox else PRODUCTION_HOST
+        self.auth_token = None
+        self.auth_token_time = None
 
     def send_message(self, registration_id, alert, **kwargs):
         return self._send_message(registration_id, alert, **kwargs)
@@ -109,6 +109,12 @@ class APNsClient(object):
     def _create_connection(self):
         return HTTP20Connection(self.host, force_proto=self.force_proto)
 
+    def _possibly_regenerate_token(self):
+        if not self.auth_token or time.time() - self.auth_token_time > 50 * 60:
+            self.auth_token = self._create_token()
+            self.auth_token_time = time.time()
+        return self.auth_token
+    
     def _create_token(self):
         token = jwt.encode(
             {
@@ -181,7 +187,7 @@ class APNsClient(object):
         # If expiration isn't specified use 1 month from now
         expiration_time = expiration if expiration is not None else int(time.time()) + 2592000
 
-        auth_token = auth_token or self._create_token()
+        auth_token = auth_token or self._possibly_regenerate_token()
 
         if not topic:
             topic = bundle_id if bundle_id else self.bundle_id
@@ -220,10 +226,9 @@ class APNsClient(object):
             reason = body["reason"] if "reason" in body else None
 
             if reason:
-                exceptions_module = importlib.import_module("gobiko.apns.exceptions")
                 ExceptionClass = None
                 try:
-                    ExceptionClass = getattr(exceptions_module, reason)
+                    ExceptionClass = getattr(exceptions, reason)
                 except AttributeError:
                     ExceptionClass = InternalException
                 raise ExceptionClass()
