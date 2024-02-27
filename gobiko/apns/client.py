@@ -135,10 +135,14 @@ class APNsClient(object):
                 'kid': self.auth_key_id,
             }
         )
-        return token.decode('ascii')
+
+        # original: [deb]
+        # return token.decode('ascii')
+        return token
 
     def _send_message(self, registration_id, alert, 
             badge=None, sound=None, category=None, content_available=False,
+            alert_title=None,
             mutable_content=False,
             action_loc_key=None, loc_key=None, loc_args=[], extra={}, 
             identifier=None, expiration=None, priority=10, 
@@ -162,8 +166,8 @@ class APNsClient(object):
             if loc_args:
                 alert["loc-args"] = loc_args
 
-        if alert is not None:
-            aps_data["alert"] = alert
+        if alert_title is not None:
+            aps_data["alert"] = { "title" : alert_title, "body" : alert }
 
         if badge is not None:
             aps_data["badge"] = badge
@@ -176,8 +180,9 @@ class APNsClient(object):
 
         if content_available:
             aps_data["content-available"] = 1
-            push_type = "background"
-            priority = 5
+            if not alert_title and not badge and not sound:
+                push_type = "background"
+                priority = 5
 
         if mutable_content:
             aps_data["mutable-content"] = 1
@@ -211,6 +216,7 @@ class APNsClient(object):
             identifier = uuid.uuid4()
         request_headers['apns-id'] = str(identifier)
 
+        print("Payload: ", json_data)
         if connection:
             response = self._send_push_request(connection, registration_id, json_data, request_headers)
         else:
